@@ -5,6 +5,7 @@ find_package(OpenCV REQUIRED)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_executable(rotate main.cpp)
 target_compile_options(rotate PRIVATE -O3)

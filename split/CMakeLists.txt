@@ -4,6 +4,7 @@ project(split)
 find_package(OpenCV REQUIRED)
 
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_executable(split main.cpp)
 target_compile_options(split PRIVATE -O3)

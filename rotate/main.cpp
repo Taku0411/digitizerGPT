@@ -11,65 +11,6 @@
 
 namespace fs = std::filesystem;
 
-struct detected
-{
-  detected(cv::Vec4i line, double degree) : line(line), degree_result(degree)
-  {
-    line_length = std::sqrt(std::pow(line[0] - line[1], 2) +
-                            std::pow(line[2] - line[3], 2));
-  }
-  double degree_result;  // modified degree
-  double line_length;
-
-  cv::Vec4i line;
-};
-
-bool compare(detected &left, detected &right)
-{
-  return left.line_length < right.line_length;
-}
-
-double getDegree(std::vector<detected> &lines)
-{
-  double result = 100.0;
-  // sort lines by length
-  std::sort(lines.begin(), lines.end(), compare);
-  int num_eff = lines.size() * 0.5;
-  double sum = 0.0;
-  double mul = 0.0;
-  for (auto &line: lines)
-  {
-    sum += line.line_length;
-    mul += line.line_length * line.degree_result;
-    std::cout << line.degree_result << std::endl;
-  }
-  return mul / sum;
-};
-
-double getDegree2(std::vector<detected> &lines)
-{
-  std::vector<double> rot;
-  std::vector<double> eff;
-  for (auto &line: lines) rot.push_back(line.degree_result);
-
-  const auto ave =
-          std::accumulate(std::begin(rot), std::end(rot), 0.0) / std::size(rot);
-  const auto var = std::inner_product(std::begin(rot), std::end(rot),
-                                      std::begin(rot), 0.0) /
-                           std::size(rot) -
-                   ave * ave;
-  std::cout << "variabce: " << var << std::endl;
-  for (auto &line: lines)
-  {
-    double val = (line.degree_result - ave) / std::sqrt(var);
-    if (std::fabs(val) < 0.05) eff.push_back(line.degree_result);
-  }
-  double result = std::accumulate(eff.begin(), eff.end(), 0.0) / eff.size();
-  std::cout << "rot" << result << std::endl;
-  return result;
-}
-
-
 void rotate(fs::path &path)
 {
   cv::Mat image = cv::imread(path);
@@ -108,9 +49,13 @@ void rotate(fs::path &path)
   {
     double line_rot =
             std::atan2(line[3] - line[1], line[2] - line[0]) * 180 / 3.141592;
-    std::cout << line_rot << std::endl;
-    if (std::fabs(line_rot) > 1.0e-3)
+    if (std::fabs(line_rot) > 1.0e-3 || std::fabs(line_rot - 90) > 1.0e-3)
     {
+      std::cout << line_rot << std::endl;
+      if (std::fabs(line_rot) > 45)
+      {
+        line_rot -= 90;
+      }
       rot.push_back(line_rot);
       cv::line(image, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]),
                cv::Scalar(0, 0, 255), 3);
@@ -124,18 +69,19 @@ void rotate(fs::path &path)
           std::inner_product(rot.begin(), rot.end(), rot.begin(), 0.0) /
                   (double) rot.size() -
           rot_mean * rot_mean;
+  std::cout << "--- stat ---" << std::endl;
   std::cout << "mean: " << rot_mean << std::endl;
   std::cout << "var : " << rot_var << std::endl;
   for (double rot_i: rot)
   {
     double std_var = std::fabs(rot_i - rot_mean) / std::sqrt(rot_var);
-    std::cout << rot_i << "->" << std_var << std::endl;
+    //std::cout << std::fabs(rot_i - rot_mean) / std::sqrt(rot_var) << std::endl;
     if (std::fabs(rot_i - rot_mean) / std::sqrt(rot_var) < 1.0)
       rot_res.push_back(rot_i);
   }
   double rot_res_mean = std::accumulate(rot_res.begin(), rot_res.end(), 0) /
                         (double) rot_res.size() * 2.0;
-  std::cout << "corr: " << rot_res_mean << std::endl;
+  std::cout << "skew degree: " << rot_res_mean << std::endl;
 
 
   cv::Mat M = cv::getRotationMatrix2D(cv::Point(width / 2, height / 2),
@@ -144,8 +90,8 @@ void rotate(fs::path &path)
   cv::warpAffine(image, image_result, M, image.size(), cv::INTER_LINEAR,
                  cv::BORDER_CONSTANT, cv::Scalar(255, 255, 255));
 
-  std::string name = path.stem().string().substr(0, 3) + ".png";
-  std::string name2 = path.stem().string().substr(0, 3) + "_detected.png";
+  std::string name = path.stem().string() + ".png";
+  std::string name2 = path.stem().string() + "_detected.png";
   std::cout << name << std::endl;
   cv::imwrite(name, image_result);
   cv::imwrite(name2, image);
@@ -170,11 +116,6 @@ int main(int argc, char *argv[])
     list.push_back(fs::path(argv[i]));
   }
 
-  int counter = 0;
-  for (auto &item: list)
-  {
-    rotate(item);
-    counter += 2;
-  }
+  for (auto &item: list) { rotate(item); }
   return 0;
 }
